@@ -1,25 +1,103 @@
-// A working gta6-meme-x-01 entry (Node 22, standard library only): it copies POST.json from the repository root to
-// /output/POST.json, where the gate reads it. That is all the program has to do. The entry is the post itself: your
-// agent makes a GTA 6 meme, it is posted on X from a public account with make.fun (a link or written out) and/or a
-// tag of @makefunai and your play code in its text, POST.json names the post, and the house reads the post from X (its
-// first picture and its text) and hands that to the judge. Nothing this program writes about the post is judged.
+// Entry program for the GTA 6 meme bounty (gta6-meme-x-01).
 //
-// The POST.json this starter ships holds a placeholder address, so the gate refuses it as it stands (valid 0).
-// Replace it with your post's address before you submit.
-//
-// Outside the grader's container, MAKEFUN_BOT_DIR and MAKEFUN_OUTPUT_DIR stand in for /bot and /output:
-//   mkdir -p out && MAKEFUN_BOT_DIR=. MAKEFUN_OUTPUT_DIR=out node main.ts
+// Job: hand the house the address of the X post that is this entry.
+// It reads POST.json from the repository, checks that it really is a
+// single X post address, and copies its exact bytes into the output
+// directory as POST.json. Nothing else is written, nothing is fetched,
+// and a successful run prints nothing.
 
-import { copyFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 
-const BOT_DIR = process.env.MAKEFUN_BOT_DIR ?? '/bot';
-const OUTPUT_DIR = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+// The house caps the post file at 16 KiB; anything bigger is invalid.
+const MAX_POST_BYTES = 16384;
 
-mkdirSync(OUTPUT_DIR, { recursive: true });
-try {
-  copyFileSync(join(BOT_DIR, 'POST.json'), join(OUTPUT_DIR, 'POST.json'));
-} catch (err) {
-  console.error(`POST.json could not be copied from ${BOT_DIR}: ${(err as Error).message}`);
+// An X post address: x.com or twitter.com, optional www./mobile. prefix,
+// a handle, then /status/<digits> (or the /i/web/status/<digits> form).
+const POST_ADDRESS =
+  /^https:\/\/(?:www\.|mobile\.)?(?:x\.com|twitter\.com)\/(?:i\/web\/status\/\d+|[^/\s]+\/status\/\d+)$/;
+
+function abort(reason: string): never {
+  process.stderr.write(`main.ts: ${reason}\n`);
   process.exit(1);
+}
+
+function directoryFrom(variable: string, fallback: string): string {
+  const raw = process.env[variable];
+  const chosen = raw === undefined || raw.trim() === "" ? fallback : raw;
+  return resolve(chosen);
+}
+
+const repoRoot = directoryFrom("MAKEFUN_BOT_DIR", ".");
+const outputRoot = directoryFrom("MAKEFUN_OUTPUT_DIR", "out");
+
+const postPath = join(repoRoot, "POST.json");
+if (!existsSync(postPath)) {
+  abort(`POST.json not found in ${repoRoot}`);
+}
+
+let rawPost: Buffer;
+try {
+  rawPost = readFileSync(postPath);
+} catch (error) {
+  abort(
+    `could not read POST.json: ${error instanceof Error ? error.message : String(error)}`,
+  );
+}
+
+if (rawPost.length === 0) {
+  abort("POST.json is empty");
+}
+
+if (rawPost.length > MAX_POST_BYTES) {
+  abort(`POST.json is ${rawPost.length} bytes, over the ${MAX_POST_BYTES} byte limit`);
+}
+
+let parsed: unknown;
+try {
+  parsed = JSON.parse(rawPost.toString("utf8"));
+} catch {
+  abort("POST.json is not valid JSON");
+}
+
+if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+  abort("POST.json must be a JSON object with a url field");
+}
+
+function addressProblem(address: unknown): string | null {
+  if (typeof address !== "string" || address === "") {
+    return "POST.json url is missing or empty";
+  }
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(address);
+  } catch {
+    return `POST.json url is not a valid URL: ${address}`;
+  }
+  if (parsedUrl.protocol !== "https:") {
+    return "POST.json url must use https";
+  }
+  const host = parsedUrl.hostname.replace(/^(www\.|mobile\.)/, "");
+  if (host !== "x.com" && host !== "twitter.com") {
+    return "POST.json url must point at x.com or twitter.com";
+  }
+  if (!POST_ADDRESS.test(address)) {
+    return "POST.json url must look like https://x.com/<handle>/status/<digits>";
+  }
+  return null;
+}
+
+const address = (parsed as Record<string, unknown>).url;
+const problem = addressProblem(address);
+if (problem !== null) {
+  abort(problem);
+}
+
+try {
+  mkdirSync(outputRoot, { recursive: true });
+  writeFileSync(join(outputRoot, "POST.json"), rawPost);
+} catch (error) {
+  abort(
+    `could not write POST.json to ${outputRoot}: ${error instanceof Error ? error.message : String(error)}`,
+  );
 }
