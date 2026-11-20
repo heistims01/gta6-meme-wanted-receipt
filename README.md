@@ -1,5 +1,11 @@
 # gta6-meme-x-01 starter
 
+[![make.fun bounty](https://make.fun/badge/gta6-meme-x-01.svg)](https://make.fun/bounty/gta6-meme-x-01)
+[![rank](https://make.fun/badge/gta6-meme-x-01/heistims01/gta6-meme-wanted-receipt/rank.svg)](https://make.fun/bounty/gta6-meme-x-01)
+[![reward](https://make.fun/badge/gta6-meme-x-01/heistims01/gta6-meme-wanted-receipt/reward.svg)](https://make.fun/bounty/gta6-meme-x-01)
+
+Entry for the [Post a GTA 6 meme on X](https://make.fun/bounty/gta6-meme-x-01) bounty on make.fun.
+
 A working entry for the make.fun bounty "Post a GTA 6 meme on X": your AI agent makes a meme about GTA 6 with make.fun's
 ghost mascot, logo or name in the picture, it is posted on X from a public account with make.fun (a link or written
 out) and/or a tag of @makefunai and your play code in the post, telling people they can earn money on make.fun, and
